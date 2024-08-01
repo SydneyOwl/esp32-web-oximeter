@@ -2,63 +2,82 @@
 #include "cal_BPM_SpO2.h"
 #include "web.h"
 #include "FTP.h"
+#include <SPI.h>
+#include "epd1in54.h"
+#include "epdpaint.h"
+#include "imagedata.h"
+
+#define COLORED 0
+#define UNCOLORED 1
+
 MAX30105 particleSensor;
 DNSServer dnsServer;
-//配置json
+// 配置json
 DynamicJsonDocument config_json(1024);
 char configFile_json[1024];
-//网络启动事件
+// 网络启动事件
 EventGroupHandle_t Event_Handler = NULL;
 
 IPAddress AP_local_ip(192, 168, 4, 1);
-IPAddress AP_gateway(192, 168, 4, 1); 
+IPAddress AP_gateway(192, 168, 4, 1);
 IPAddress AP_subnet(255, 255, 255, 0);
 
 void WiFiEvent(WiFiEvent_t event);
 
-//恢复默认配置
-void loadDefaultConfig() {
+unsigned char image[1024];
+Epd epd;
+Paint paint(image, 0, 0); // width should be the multiple of 8
+
+// 恢复默认配置
+void loadDefaultConfig()
+{
     log_d("loadDefaultConfig");
-    config_json["AP_ssid"]    = "ESP32 血氧仪";
-    config_json["AP_passwd"]  = "";
-    config_json["STA_ssid"]   = "";
+    config_json["AP_ssid"] = "ESP32 血氧仪";
+    config_json["AP_passwd"] = "";
+    config_json["STA_ssid"] = "";
     config_json["STA_passwd"] = "";
 }
-//载入配置文件
-void loadConfigFile() {
+// 载入配置文件
+void loadConfigFile()
+{
     log_d("loadConfigFile");
-    //读取配置文件
+    // 读取配置文件
     File configFile_f = FILESYSTEM.open(CONFIG_FILE_PATH);
-    if(!configFile_f || configFile_f.isDirectory()){
-        log_w("打开配置文件%s失败,使用默认配置",CONFIG_FILE_PATH);
+    if (!configFile_f || configFile_f.isDirectory())
+    {
+        log_w("打开配置文件%s失败,使用默认配置", CONFIG_FILE_PATH);
         return;
     }
-    //读取配置文件
-    configFile_f.read((uint8_t*)configFile_json, sizeof(configFile_json));
+    // 读取配置文件
+    configFile_f.read((uint8_t *)configFile_json, sizeof(configFile_json));
     configFile_f.close();
-    log_d("%s",configFile_json);
-    //反序列化json
+    log_d("%s", configFile_json);
+    // 反序列化json
     DeserializationError error = deserializeJson(config_json, configFile_json);
-    if (error) {
-        log_w("反序列化配置文件失败:%s,使用默认配置",error.f_str());
+    if (error)
+    {
+        log_w("反序列化配置文件失败:%s,使用默认配置", error.f_str());
         loadDefaultConfig();
         return;
     }
     serializeJsonPretty(config_json, Serial);
 }
-uint8_t saveConfigFile() {
+uint8_t saveConfigFile()
+{
     char configFileSave_json[1024];
-    //序列化配置文件
+    // 序列化配置文件
     serializeJson(config_json, configFileSave_json, sizeof(configFileSave_json));
-    log_d("序列化后配置文件输出:%s",configFileSave_json);
-    //打开配置文件
+    log_d("序列化后配置文件输出:%s", configFileSave_json);
+    // 打开配置文件
     File file = FILESYSTEM.open(CONFIG_FILE_PATH, FILE_WRITE);
-    if(!file){
+    if (!file)
+    {
         log_e("failed to open file for writing");
         return 1;
     }
-    //写入配置文件
-    if(!file.print(configFileSave_json)){
+    // 写入配置文件
+    if (!file.print(configFileSave_json))
+    {
         file.close();
         log_e("write failed");
         return 1;
@@ -67,100 +86,126 @@ uint8_t saveConfigFile() {
     return 0;
 }
 
-
 void setup()
 {
-    //初始化串口
+    // 初始化串口
     Serial.begin(115200);
-    //彩色log打印测试
-    // log_e("E");
-    // log_w("W");
-    // log_i("I");
-    // log_d("D");
-    // log_v("V");
+    // 彩色log打印测试
+    //  log_e("E");
+    //  log_w("W");
+    //  log_i("I");
+    //  log_d("D");
+    //  log_v("V");
 
-    //创建事件
+    if (epd.Init(lut_full_update) != 0)
+    {
+        Serial.print("e-Paper init failed");
+        return;
+    }
+
+    epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
+    epd.DisplayFrame();
+    epd.ClearFrameMemory(0xff); // bit set = white, bit reset = black
+    epd.DisplayFrame();
+
+    paint.SetRotate(ROTATE_0); // 指定显示区域
+    paint.SetWidth(200);
+    paint.SetHeight(20);
+    paint.Clear(COLORED);
+    paint.DrawStringAt(25, 2, "PSE USE HOTSPOT", &Font16, UNCOLORED);
+    epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
+    epd.DisplayFrame();
+    // 创建事件
     Event_Handler = xEventGroupCreate();
-    if (Event_Handler == NULL) {
+    if (Event_Handler == NULL)
+    {
         log_e("事件创建失败");
         abort();
     }
 
-    //初始化文件系统
+    // 初始化文件系统
     log_i("Inizializing FS...");
-    if (!FILESYSTEM.begin(true)) {
+    if (!FILESYSTEM.begin(true))
+    {
         log_e("文件系统挂载失败，请检查分区表设置！");
         abort();
     }
 
-    //载入默认配置
+    // 载入默认配置
     loadDefaultConfig();
-    //载入配置文件
+    // 载入配置文件
     loadConfigFile();
 
     WiFi.softAPConfig(AP_local_ip, AP_gateway, AP_subnet);
-    //启动Wifi连接
+    // 启动Wifi连接
     WiFi.mode(WIFI_AP_STA);
-    //注册Wifi回调事件
+    // 注册Wifi回调事件
     WiFi.onEvent(WiFiEvent);
     serializeJsonPretty(config_json, Serial);
-    WiFi.softAP((const char*)config_json["AP_ssid"], (const char*)config_json["AP_passwd"]);
-    WiFi.begin((const char*)config_json["STA_ssid"], (const char*)config_json["STA_passwd"]);
+    WiFi.softAP((const char *)config_json["AP_ssid"], (const char *)config_json["AP_passwd"]);
+    WiFi.begin((const char *)config_json["STA_ssid"], (const char *)config_json["STA_passwd"]);
 
-    //开启dns服务，用于强制门户验证跳转到主页
+    // 开启dns服务，用于强制门户验证跳转到主页
     dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
     dnsServer.start(53, "*", AP_gateway);
 
-    //触发 启动完成 事件
+    // 触发 启动完成 事件
     xEventGroupSetBits(Event_Handler, EVENT_NETWORK_OK);
-    
-    //开启 心率&血压 监测任务
+
+    // 开启 心率&血压 监测任务
     if (xTaskCreate(
-        cal_BPM_SpO2_task,
-        "cal_BPM_SpO2",
-        4096, /* Stack depth - small microcontrollers will use much
-        less stack than this. */
-        NULL, /* This example does not use the task parameter. */
-        1, /* This task will run at priority 1. */
-        NULL ) /* This example does not use the task handle. */ != pdPASS) {
-            log_e("Couldn't create cal_BPM_SpO2 task\n"); 
+            cal_BPM_SpO2_task,
+            "cal_BPM_SpO2",
+            4096, /* Stack depth - small microcontrollers will use much
+            less stack than this. */
+            NULL, /* This example does not use the task parameter. */
+            1,    /* This task will run at priority 1. */
+            NULL) /* This example does not use the task handle. */
+        != pdPASS)
+    {
+        log_e("Couldn't create cal_BPM_SpO2 task\n");
     }
 
-    //开启网络服务
+    // 开启网络服务
     if (xTaskCreate(
-        webServer_Task,
-        "webServer",
-        8096, /* Stack depth - small microcontrollers will use much
-        less stack than this. */
-        NULL, /* This example does not use the task parameter. */
-        1, /* This task will run at priority 1. */
-        NULL ) /* This example does not use the task handle. */ != pdPASS) {
-            log_e("Couldn't create cal_BPM_SpO2 task\n"); 
+            webServer_Task,
+            "webServer",
+            8096, /* Stack depth - small microcontrollers will use much
+            less stack than this. */
+            NULL, /* This example does not use the task parameter. */
+            1,    /* This task will run at priority 1. */
+            NULL) /* This example does not use the task handle. */
+        != pdPASS)
+    {
+        log_e("Couldn't create cal_BPM_SpO2 task\n");
     }
 
-    //开启FTP服务
+    // 开启FTP服务
     if (xTaskCreate(
-        FTP_task,
-        "FTP",
-        8096, /* Stack depth - small microcontrollers will use much
-        less stack than this. */
-        NULL, /* This example does not use the task parameter. */
-        1, /* This task will run at priority 1. */
-        NULL ) /* This example does not use the task handle. */ != pdPASS) {
-            log_e("Couldn't create FTP task\n"); 
+            FTP_task,
+            "FTP",
+            8096, /* Stack depth - small microcontrollers will use much
+            less stack than this. */
+            NULL, /* This example does not use the task parameter. */
+            1,    /* This task will run at priority 1. */
+            NULL) /* This example does not use the task handle. */
+        != pdPASS)
+    {
+        log_e("Couldn't create FTP task\n");
     }
 }
 
 void loop()
 {
     dnsServer.processNextRequest();
-    // vTaskDelay(portMAX_DELAY); 
+    // vTaskDelay(portMAX_DELAY);
 }
 
 void WiFiEvent(WiFiEvent_t event)
 {
     log_d("[WiFi-event] event: %d\n", event);
-    switch (event) {
+    switch (event)
+    {
     case SYSTEM_EVENT_WIFI_READY:
         log_d("WiFi interface ready");
         break;
@@ -178,7 +223,7 @@ void WiFiEvent(WiFiEvent_t event)
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
         log_d("Disconnected from WiFi access point");
-        //尝试重新建立连接
+        // 尝试重新建立连接
         WiFi.reconnect();
         break;
     case SYSTEM_EVENT_STA_AUTHMODE_CHANGE:
@@ -186,7 +231,14 @@ void WiFiEvent(WiFiEvent_t event)
         break;
     case SYSTEM_EVENT_STA_GOT_IP:
         Serial.print("Obtained IP address: ");
-        log_d("%s",WiFi.localIP());
+        log_d("%s", WiFi.localIP());
+
+        paint.SetWidth(200);
+        paint.SetHeight(20);
+        paint.Clear(UNCOLORED);
+        paint.DrawStringAt(30, 2, WiFi.localIP().toString().c_str(), &Font16, UNCOLORED);
+        epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
+        epd.DisplayFrame();
         break;
     case SYSTEM_EVENT_STA_LOST_IP:
         log_d("Lost IP address and IP address is reset to 0");
@@ -239,6 +291,7 @@ void WiFiEvent(WiFiEvent_t event)
     case SYSTEM_EVENT_ETH_GOT_IP:
         log_d("Obtained IP address");
         break;
-    default: break;
+    default:
+        break;
     }
 }
