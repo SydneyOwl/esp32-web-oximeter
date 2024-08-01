@@ -25,6 +25,7 @@ IPAddress AP_subnet(255, 255, 255, 0);
 extern double eSpO2;
 extern double Ebpm;
 extern bool max30102_fail;
+String ipaddr = "PSE USE HOTSPOT";
 
 void updateDisplay_task(void* pvParameters);
 void WiFiEvent(WiFiEvent_t event);
@@ -102,7 +103,7 @@ void setup()
     //  log_d("D");
     //  log_v("V");
 
-    if (epd.Init(lut_full_update) != 0)
+    if (epd.Init(lut_partial_update) != 0)
     {
         Serial.print("e-Paper init failed");
         return;
@@ -110,49 +111,34 @@ void setup()
 
     epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
     epd.DisplayFrame();
-    epd.ClearFrameMemory(0xff); // bit set = white, bit reset = black
+    epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
     epd.DisplayFrame();
 
-    paint.SetWidth(200);
-    paint.SetHeight(20);
-    paint.Clear(COLORED);
-    paint.DrawStringAt(20, 2, "PSE USE HOTSPOT", &Font16, UNCOLORED);
-    epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
+    // int a = 1;
+    // while (1){
+    //     paint.SetWidth(200);
+    //     paint.SetHeight(20);
+    //     paint.Clear(COLORED);
+    //     paint.DrawStringAt(20, 2, "PSE USE HOTSPOT", &Font16, UNCOLORED);
+    //     epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
 
-    paint.SetWidth(80);
-    paint.SetHeight(40);
-    paint.Clear(UNCOLORED);
-    paint.DrawStringAt(2, 20, "SpO2:", &Font20, COLORED);
-    epd.SetFrameMemory(paint.GetImage(), 0, 30, paint.GetWidth(), paint.GetHeight());
+    //     paint.SetWidth(80);
+    //     paint.SetHeight(40);
+    //     paint.Clear(UNCOLORED);
+    //     paint.DrawStringAt(2, 20, std::to_string(a++).c_str(), &Font20, COLORED);
+    //     epd.SetFrameMemory(paint.GetImage(), 0, 30, paint.GetWidth(), paint.GetHeight());
 
-    paint.SetWidth(80);
-    paint.SetHeight(40);
-    paint.Clear(UNCOLORED);
-    paint.DrawStringAt(2, 20, "BPM:", &Font20, COLORED);
-    epd.SetFrameMemory(paint.GetImage(), 0, 80, paint.GetWidth(), paint.GetHeight());
-    epd.DisplayFrame();
-    delay(500);
-    SPI.endTransaction();
-    if (epd.Init(lut_partial_update) != 0)
-    {
-        Serial.print("e-Paper init failed");
-        return;
-    }
+    //     // paint.SetWidth(80);
+    //     // paint.SetHeight(40);
+    //     // paint.Clear(UNCOLORED);
+    //     // paint.DrawStringAt(2, 20, "BPM:", &Font20, COLORED);
+    //     // epd.SetFrameMemory(paint.GetImage(), 0, 80, paint.GetWidth(), paint.GetHeight());
+    //     epd.DisplayFrame();
+    //     delay(3000);
+    // }
+
     
 
-    //  paint.SetWidth(80);
-    // paint.SetHeight(80);
-    // paint.Clear(UNCOLORED);
-    // paint.DrawStringAt(0, 20, "60", &Font24, COLORED);
-    // epd.SetFrameMemory(paint.GetImage(), 80, 30, paint.GetWidth(), paint.GetHeight());
-
-    // paint.SetWidth(80);
-    // paint.SetHeight(80);
-    // paint.Clear(UNCOLORED);
-    // paint.DrawStringAt(0, 20, "99", &Font24, COLORED);
-    // epd.SetFrameMemory(paint.GetImage(), 80, 80, paint.GetWidth(), paint.GetHeight());
-
-    // epd.DisplayFrame();
     // end init screen
 
     // 创建事件
@@ -219,33 +205,33 @@ void setup()
         log_e("Couldn't create UpdateDisplay task\n");
     }
 
-    // // 开启网络服务
-    // if (xTaskCreate(
-    //         webServer_Task,
-    //         "webServer",
-    //         8096, /* Stack depth - small microcontrollers will use much
-    //         less stack than this. */
-    //         NULL, /* This example does not use the task parameter. */
-    //         1,    /* This task will run at priority 1. */
-    //         NULL) /* This example does not use the task handle. */
-    //     != pdPASS)
-    // {
-    //     log_e("Couldn't create cal_BPM_SpO2 task\n");
-    // }
+    // 开启网络服务
+    if (xTaskCreate(
+            webServer_Task,
+            "webServer",
+            8096, /* Stack depth - small microcontrollers will use much
+            less stack than this. */
+            NULL, /* This example does not use the task parameter. */
+            1,    /* This task will run at priority 1. */
+            NULL) /* This example does not use the task handle. */
+        != pdPASS)
+    {
+        log_e("Couldn't create cal_BPM_SpO2 task\n");
+    }
 
     // // 开启FTP服务
-    // if (xTaskCreate(
-    //         FTP_task,
-    //         "FTP",
-    //         8096, /* Stack depth - small microcontrollers will use much
-    //         less stack than this. */
-    //         NULL, /* This example does not use the task parameter. */
-    //         1,    /* This task will run at priority 1. */
-    //         NULL) /* This example does not use the task handle. */
-    //     != pdPASS)
-    // {
-    //     log_e("Couldn't create FTP task\n");
-    // }
+    if (xTaskCreate(
+            FTP_task,
+            "FTP",
+            8096, /* Stack depth - small microcontrollers will use much
+            less stack than this. */
+            NULL, /* This example does not use the task parameter. */
+            1,    /* This task will run at priority 1. */
+            NULL) /* This example does not use the task handle. */
+        != pdPASS)
+    {
+        log_e("Couldn't create FTP task\n");
+    }
 }
 
 void loop()
@@ -267,20 +253,36 @@ void updateDisplay_task(void* pvParameters)
     }
     while (1)
     {
-        paint.SetWidth(80);
-        paint.SetHeight(80);
-        paint.Clear(UNCOLORED);
-        paint.DrawStringAt(0, 20, std::to_string(eSpO2).c_str(), &Font24, COLORED);
-        epd.SetFrameMemory(paint.GetImage(), 80, 30, paint.GetWidth(), paint.GetHeight());
+        delay(1000);
+        if (abs(eSpO2-MINIMUM_SPO2)<0.1){
+            paint.DrawStringAt(0, 20, "---", &Font24, COLORED);
+        }
+        paint.SetWidth(200);
+        paint.SetHeight(20);
+        paint.Clear(COLORED);
+        paint.DrawStringAt(20, 2, ipaddr.c_str(), &Font16, UNCOLORED);
+        epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
 
-        paint.SetWidth(80);
-        paint.SetHeight(80);
+        paint.SetWidth(200);
+        paint.SetHeight(40);
         paint.Clear(UNCOLORED);
-        paint.DrawStringAt(0, 20, std::to_string(Ebpm).c_str(), &Font24, COLORED);
-        epd.SetFrameMemory(paint.GetImage(), 80, 80, paint.GetWidth(), paint.GetHeight());
+        if (abs(eSpO2-MINIMUM_SPO2)<0.1){
+            paint.DrawStringAt(0, 20, "SpO2: ---", &Font24, COLORED);
+        }else{
+            paint.DrawStringAt(2, 20, ("SpO2: "+std::to_string(eSpO2)).c_str(), &Font24, COLORED);
+        }
+        epd.SetFrameMemory(paint.GetImage(), 0, 30, paint.GetWidth(), paint.GetHeight());
 
+        paint.SetWidth(200);
+        paint.SetHeight(40);
+        paint.Clear(UNCOLORED);
+        if (abs(eSpO2-MINIMUM_SPO2)<0.1){
+            paint.DrawStringAt(0, 20, "BPM: ---", &Font24, COLORED);
+        }else{
+            paint.DrawStringAt(2, 20, ("BPM: "+std::to_string(Ebpm)).c_str(), &Font24, COLORED);
+        }
+        epd.SetFrameMemory(paint.GetImage(), 0, 80, paint.GetWidth(), paint.GetHeight());
         epd.DisplayFrame();
-        delay(1);
     }
 }
 
@@ -315,13 +317,7 @@ void WiFiEvent(WiFiEvent_t event)
     case SYSTEM_EVENT_STA_GOT_IP:
         Serial.print("Obtained IP address: ");
         log_d("%s", WiFi.localIP());
-
-        paint.SetWidth(200);
-        paint.SetHeight(20);
-        paint.Clear(UNCOLORED);
-        paint.DrawStringAt(30, 2, WiFi.localIP().toString().c_str(), &Font16, UNCOLORED);
-        epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
-        epd.DisplayFrame();
+        ipaddr = WiFi.localIP().toString();
         break;
     case SYSTEM_EVENT_STA_LOST_IP:
         log_d("Lost IP address and IP address is reset to 0");
