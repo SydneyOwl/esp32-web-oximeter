@@ -27,7 +27,7 @@ extern double Ebpm;
 extern bool max30102_fail;
 String ipaddr = "PSE USE HOTSPOT";
 
-void updateDisplay_task(void* pvParameters);
+void updateDisplay_task(void *pvParameters);
 void WiFiEvent(WiFiEvent_t event);
 
 unsigned char image[1024];
@@ -137,8 +137,6 @@ void setup()
     //     delay(3000);
     // }
 
-    
-
     // end init screen
 
     // 创建事件
@@ -240,9 +238,10 @@ void loop()
     // vTaskDelay(portMAX_DELAY);
 }
 
-void updateDisplay_task(void* pvParameters)
+void updateDisplay_task(void *pvParameters)
 {
-    if (max30102_fail){
+    if (max30102_fail)
+    {
         paint.SetWidth(200);
         paint.SetHeight(20);
         paint.Clear(COLORED);
@@ -254,7 +253,8 @@ void updateDisplay_task(void* pvParameters)
     while (1)
     {
         delay(1000);
-        if (abs(eSpO2-MINIMUM_SPO2)<0.1){
+        if (abs(eSpO2 - MINIMUM_SPO2) < 0.1)
+        {
             paint.DrawStringAt(0, 20, "---", &Font24, COLORED);
         }
         paint.SetWidth(200);
@@ -266,20 +266,31 @@ void updateDisplay_task(void* pvParameters)
         paint.SetWidth(200);
         paint.SetHeight(40);
         paint.Clear(UNCOLORED);
-        if (abs(eSpO2-MINIMUM_SPO2)<0.1){
+        if (abs(eSpO2 - MINIMUM_SPO2) < 0.1)
+        {
             paint.DrawStringAt(0, 20, "SpO2: ---", &Font24, COLORED);
-        }else{
-            paint.DrawStringAt(2, 20, ("SpO2: "+std::to_string(eSpO2)).c_str(), &Font24, COLORED);
+        }
+        else
+        {
+            std::string tmp = std::to_string(eSpO2);
+            std::string result = tmp.substr(0, tmp.find(".") + 2);
+
+            paint.DrawStringAt(2, 20, ("SpO2: " + result + "%").c_str(), &Font24, COLORED);
         }
         epd.SetFrameMemory(paint.GetImage(), 0, 30, paint.GetWidth(), paint.GetHeight());
 
         paint.SetWidth(200);
         paint.SetHeight(40);
         paint.Clear(UNCOLORED);
-        if (abs(eSpO2-MINIMUM_SPO2)<0.1){
+        if (abs(eSpO2 - MINIMUM_SPO2) < 0.1)
+        {
             paint.DrawStringAt(0, 20, "BPM: ---", &Font24, COLORED);
-        }else{
-            paint.DrawStringAt(2, 20, ("BPM: "+std::to_string(Ebpm)).c_str(), &Font24, COLORED);
+        }
+        else
+        {
+            std::string tmp = std::to_string(Ebpm);
+            std::string result = tmp.substr(0, tmp.find("."));
+            paint.DrawStringAt(2, 20, ("BPM: " + result).c_str(), &Font24, COLORED);
         }
         epd.SetFrameMemory(paint.GetImage(), 0, 80, paint.GetWidth(), paint.GetHeight());
         epd.DisplayFrame();
