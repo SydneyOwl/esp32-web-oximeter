@@ -8,6 +8,7 @@ double aveIr = 0;//DC component of IR signal
 double sumIrRMS = 0; //sum of IR square
 double sumRedRMS = 0; // sum of RED square
 
+bool max30102_fail = false;
 int Num = SUM_CYCLE; //calculate SpO2 by this sampling interval
 double eSpO2 = 95.0;//initial value of estimated SpO2
 double fSpO2 = 0.7; //filter factor for estimated SpO2
@@ -79,8 +80,10 @@ void cal_BPM_SpO2_task(void* pvParameters) {
 #else
         log_e("Please check wiring/power/solder jumper at MH-ET LIVE MAX30102 board. ");
 #endif
-        log_e("restarting...");
-        abort();
+        // log_e("restarting...");
+        // abort();
+        max30102_fail = true;
+        return;
     }
     //初始化传感器
     initSensor();

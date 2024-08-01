@@ -22,6 +22,11 @@ IPAddress AP_local_ip(192, 168, 4, 1);
 IPAddress AP_gateway(192, 168, 4, 1);
 IPAddress AP_subnet(255, 255, 255, 0);
 
+extern double eSpO2;
+extern double Ebpm;
+extern bool max30102_fail;
+
+void updateDisplay_task(void* pvParameters);
 void WiFiEvent(WiFiEvent_t event);
 
 unsigned char image[1024];
@@ -108,13 +113,48 @@ void setup()
     epd.ClearFrameMemory(0xff); // bit set = white, bit reset = black
     epd.DisplayFrame();
 
-    paint.SetRotate(ROTATE_0); // 指定显示区域
     paint.SetWidth(200);
     paint.SetHeight(20);
     paint.Clear(COLORED);
-    paint.DrawStringAt(25, 2, "PSE USE HOTSPOT", &Font16, UNCOLORED);
+    paint.DrawStringAt(20, 2, "PSE USE HOTSPOT", &Font16, UNCOLORED);
     epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
+
+    paint.SetWidth(80);
+    paint.SetHeight(40);
+    paint.Clear(UNCOLORED);
+    paint.DrawStringAt(2, 20, "SpO2:", &Font20, COLORED);
+    epd.SetFrameMemory(paint.GetImage(), 0, 30, paint.GetWidth(), paint.GetHeight());
+
+    paint.SetWidth(80);
+    paint.SetHeight(40);
+    paint.Clear(UNCOLORED);
+    paint.DrawStringAt(2, 20, "BPM:", &Font20, COLORED);
+    epd.SetFrameMemory(paint.GetImage(), 0, 80, paint.GetWidth(), paint.GetHeight());
     epd.DisplayFrame();
+    delay(500);
+    SPI.endTransaction();
+    if (epd.Init(lut_partial_update) != 0)
+    {
+        Serial.print("e-Paper init failed");
+        return;
+    }
+    
+
+    //  paint.SetWidth(80);
+    // paint.SetHeight(80);
+    // paint.Clear(UNCOLORED);
+    // paint.DrawStringAt(0, 20, "60", &Font24, COLORED);
+    // epd.SetFrameMemory(paint.GetImage(), 80, 30, paint.GetWidth(), paint.GetHeight());
+
+    // paint.SetWidth(80);
+    // paint.SetHeight(80);
+    // paint.Clear(UNCOLORED);
+    // paint.DrawStringAt(0, 20, "99", &Font24, COLORED);
+    // epd.SetFrameMemory(paint.GetImage(), 80, 80, paint.GetWidth(), paint.GetHeight());
+
+    // epd.DisplayFrame();
+    // end init screen
+
     // 创建事件
     Event_Handler = xEventGroupCreate();
     if (Event_Handler == NULL)
@@ -165,40 +205,83 @@ void setup()
     {
         log_e("Couldn't create cal_BPM_SpO2 task\n");
     }
-
-    // 开启网络服务
+    // 开启 心率&血压 监测任务
     if (xTaskCreate(
-            webServer_Task,
-            "webServer",
-            8096, /* Stack depth - small microcontrollers will use much
+            updateDisplay_task,
+            "updateDisplay_task",
+            4096, /* Stack depth - small microcontrollers will use much
             less stack than this. */
             NULL, /* This example does not use the task parameter. */
             1,    /* This task will run at priority 1. */
             NULL) /* This example does not use the task handle. */
         != pdPASS)
     {
-        log_e("Couldn't create cal_BPM_SpO2 task\n");
+        log_e("Couldn't create UpdateDisplay task\n");
     }
 
-    // 开启FTP服务
-    if (xTaskCreate(
-            FTP_task,
-            "FTP",
-            8096, /* Stack depth - small microcontrollers will use much
-            less stack than this. */
-            NULL, /* This example does not use the task parameter. */
-            1,    /* This task will run at priority 1. */
-            NULL) /* This example does not use the task handle. */
-        != pdPASS)
-    {
-        log_e("Couldn't create FTP task\n");
-    }
+    // // 开启网络服务
+    // if (xTaskCreate(
+    //         webServer_Task,
+    //         "webServer",
+    //         8096, /* Stack depth - small microcontrollers will use much
+    //         less stack than this. */
+    //         NULL, /* This example does not use the task parameter. */
+    //         1,    /* This task will run at priority 1. */
+    //         NULL) /* This example does not use the task handle. */
+    //     != pdPASS)
+    // {
+    //     log_e("Couldn't create cal_BPM_SpO2 task\n");
+    // }
+
+    // // 开启FTP服务
+    // if (xTaskCreate(
+    //         FTP_task,
+    //         "FTP",
+    //         8096, /* Stack depth - small microcontrollers will use much
+    //         less stack than this. */
+    //         NULL, /* This example does not use the task parameter. */
+    //         1,    /* This task will run at priority 1. */
+    //         NULL) /* This example does not use the task handle. */
+    //     != pdPASS)
+    // {
+    //     log_e("Couldn't create FTP task\n");
+    // }
 }
 
 void loop()
 {
     dnsServer.processNextRequest();
     // vTaskDelay(portMAX_DELAY);
+}
+
+void updateDisplay_task(void* pvParameters)
+{
+    if (max30102_fail){
+        paint.SetWidth(200);
+        paint.SetHeight(20);
+        paint.Clear(COLORED);
+        paint.DrawStringAt(20, 2, "MAX30102 ERROR", &Font16, UNCOLORED);
+        epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
+        epd.DisplayFrame();
+        return;
+    }
+    while (1)
+    {
+        paint.SetWidth(80);
+        paint.SetHeight(80);
+        paint.Clear(UNCOLORED);
+        paint.DrawStringAt(0, 20, std::to_string(eSpO2).c_str(), &Font24, COLORED);
+        epd.SetFrameMemory(paint.GetImage(), 80, 30, paint.GetWidth(), paint.GetHeight());
+
+        paint.SetWidth(80);
+        paint.SetHeight(80);
+        paint.Clear(UNCOLORED);
+        paint.DrawStringAt(0, 20, std::to_string(Ebpm).c_str(), &Font24, COLORED);
+        epd.SetFrameMemory(paint.GetImage(), 80, 80, paint.GetWidth(), paint.GetHeight());
+
+        epd.DisplayFrame();
+        delay(1);
+    }
 }
 
 void WiFiEvent(WiFiEvent_t event)
