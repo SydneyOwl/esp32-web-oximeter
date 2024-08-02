@@ -3,14 +3,24 @@
 #include "epd1in54.h"
 #include "epdpaint.h"
 #include "imagedata.h"
+#include <BLEDevice.h>
+#include <BLEUtils.h>
+#include <BLEServer.h>
+#include <ArduinoJson.h>
 
 #define COLORED 0
 #define UNCOLORED 1
+
+#define SERVICE_UUID "cdfa000d-a7b4-4aab-aabe-4e81a362188a"
+#define CHARACTERISTIC_UUID "b7feb784-2f96-4a1e-ad52-f1804c58ad18"
 
 MAX30105 particleSensor;
 
 extern double eSpO2;
 extern double Ebpm;
+extern float ir_forWeb;
+extern float red_forWeb;
+extern uint32_t ir, red;
 extern bool max30102_fail;
 
 void updateDisplay_task(void *pvParameters);
@@ -19,6 +29,53 @@ unsigned char image[1024];
 Epd epd;
 Paint paint(image, 0, 0); // width should be the multiple of 8
 
+class MyCallbacks : public BLECharacteristicCallbacks
+{
+
+    void onWrite(BLECharacteristic *pCharacteristic)
+    { // 写方法
+        DynamicJsonDocument doc(1024);
+        char raw_JSON[1024];
+        std::string value = pCharacteristic->getValue(); // 接收值
+        if (value.length() > 0)
+        {
+            Serial.println("*********");
+            for (int i = 0; i < value.length(); i++) // 遍历输出字符串
+                Serial.print(value[i]);
+            Serial.println();
+            Serial.println("*********");
+            DeserializationError error = deserializeJson(doc, value.c_str());
+            if (error)
+            {
+                log_e("反序列化配置文件失败", error.f_str());
+                doc.clear();
+                doc["status"] = 300;
+                doc["msg"] = "Failed to parse your request!";
+                serializeJson(doc, raw_JSON);
+                pCharacteristic->setValue(raw_JSON);
+                pCharacteristic->indicate();
+                return;
+            }
+            // Normal Status
+            std::string order = doc["order"];
+            if (order=="getData"){
+                doc.clear();
+                doc["status"] = 200;
+                doc["millis"] = millis();
+                doc["BPM"] = Ebpm;
+                doc["SpO2"] = eSpO2;
+                doc["ir_forGraph"] = ir_forWeb;
+                doc["red_forGraph"] = red_forWeb;
+                doc["ir"] = ir;
+                doc["red"] = red;
+                serializeJson(doc, raw_JSON);
+                pCharacteristic->setValue(raw_JSON);
+                pCharacteristic->indicate();
+                return;
+            }
+        }
+    }
+};
 
 void setup()
 {
@@ -61,11 +118,22 @@ void setup()
     {
         log_e("Couldn't create UpdateDisplay task\n");
     }
+
+    BLEDevice::init("血氧仪");
+    BLEServer *pServer = BLEDevice::createServer();
+    BLEService *pService = pServer->createService(SERVICE_UUID);
+    BLECharacteristic *pCharacteristic = pService->createCharacteristic(
+        CHARACTERISTIC_UUID,
+        BLECharacteristic::PROPERTY_INDICATE |
+            BLECharacteristic::PROPERTY_WRITE);
+    pCharacteristic->setCallbacks(new MyCallbacks());
+    pService->start();
+    BLEAdvertising *pAdvertising = pServer->getAdvertising();
+    pAdvertising->start();
 }
 
 void loop()
 {
-
 }
 
 void updateDisplay_task(void *pvParameters)
@@ -83,13 +151,16 @@ void updateDisplay_task(void *pvParameters)
     while (1)
     {
         delay(500);
-        if (abs(eSpO2 - MINIMUM_SPO2) < 0.1){
+        if (abs(eSpO2 - MINIMUM_SPO2) < 0.1)
+        {
             paint.SetWidth(200);
             paint.SetHeight(20);
             paint.Clear(COLORED);
             paint.DrawStringAt(20, 2, "PLACE UR FINGER", &Font16, UNCOLORED);
             epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
-        }else{
+        }
+        else
+        {
             paint.SetWidth(200);
             paint.SetHeight(20);
             paint.Clear(UNCOLORED);
