@@ -11,8 +11,11 @@
 #define COLORED 0
 #define UNCOLORED 1
 
-#define STABLE_SP02 0.5
-#define STABLE_BPM 5
+#define STABLE_SP02 0.35
+#define STABLE_BPM 3
+#define LOW_SPO2 90
+#define LOW_BPM 60
+#define HIGH_BPM 100
 
 #define SERVICE_UUID "cdfa000d-a7b4-4aab-aabe-4e81a362188a"
 #define CHARACTERISTIC_UUID "b7feb784-2f96-4a1e-ad52-f1804c58ad18"
@@ -25,7 +28,6 @@ extern float ir_forWeb;
 extern float red_forWeb;
 extern uint32_t ir, red;
 extern uint32_t ESP_getFlashChipId();
-
 
 extern bool max30102_fail;
 bool bluetooth_connected;
@@ -65,7 +67,8 @@ class MyCallbacks : public BLECharacteristicCallbacks
             }
             // Normal Status
             std::string order = doc["order"];
-            if (order=="getData"){
+            if (order == "getData")
+            {
                 doc.clear();
                 doc["status"] = 200;
                 doc["millis"] = millis();
@@ -80,7 +83,8 @@ class MyCallbacks : public BLECharacteristicCallbacks
                 pCharacteristic->indicate();
                 return;
             }
-            if (order=="getDeviceInfo"){
+            if (order == "getDeviceInfo")
+            {
                 char compilationDate[50];
                 sprintf(compilationDate, "%s %s", __DATE__, __TIME__);
                 doc.clear();
@@ -113,13 +117,16 @@ class MyCallbacks : public BLECharacteristicCallbacks
     }
 };
 
-class MyServerCallbacks : public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) {
+class MyServerCallbacks : public BLEServerCallbacks
+{
+    void onConnect(BLEServer *pServer)
+    {
         Serial.print("connected");
         bluetooth_connected = true;
     }
 
-    void onDisconnect(BLEServer* pServer) {
+    void onDisconnect(BLEServer *pServer)
+    {
         Serial.print("disconnected");
         bluetooth_connected = false;
         abort();
@@ -141,12 +148,12 @@ void setup()
     epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
     epd.DisplayFrame();
 
-
     paint.SetWidth(200);
     paint.SetHeight(20);
     paint.Clear(UNCOLORED);
-    for (int i=0;i<10;i++){
-        epd.SetFrameMemory(paint.GetImage(), 0, 20*i, paint.GetWidth(), paint.GetHeight());
+    for (int i = 0; i < 10; i++)
+    {
+        epd.SetFrameMemory(paint.GetImage(), 0, 20 * i, paint.GetWidth(), paint.GetHeight());
     }
     epd.DisplayFrame();
 
@@ -225,6 +232,16 @@ void updateDisplay_task(void *pvParameters)
             epd.SetFrameMemory(paint.GetImage(), 75, 30, paint.GetWidth(), paint.GetHeight());
             last_ebpm = 0;
             last_spo2 = 0;
+            // clear lowsp2
+            paint.SetWidth(200);
+            paint.SetHeight(20);
+            paint.Clear(UNCOLORED);
+            epd.SetFrameMemory(paint.GetImage(), 0, 160, paint.GetWidth(), paint.GetHeight());
+            //CLEAR LOWHIGHBPM
+            paint.SetWidth(200);
+            paint.SetHeight(20);
+            paint.Clear(UNCOLORED);
+            epd.SetFrameMemory(paint.GetImage(), 0, 140, paint.GetWidth(), paint.GetHeight());
         }
         else
         {
@@ -232,14 +249,17 @@ void updateDisplay_task(void *pvParameters)
             paint.SetHeight(20);
             paint.Clear(UNCOLORED);
             epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
-            if (abs(eSpO2 - MINIMUM_SPO2) > 0.1 && (abs(last_spo2-eSpO2)>STABLE_SP02 || abs(last_ebpm-Ebpm)>STABLE_BPM)){
+            if (abs(eSpO2 - MINIMUM_SPO2) > 0.1 && (abs(last_spo2 - eSpO2) > STABLE_SP02 || abs(last_ebpm - Ebpm) > STABLE_BPM))
+            {
                 Serial.print("111");
                 paint.SetWidth(50);
                 paint.SetHeight(20);
                 paint.Clear(COLORED);
-                paint.DrawStringAt(5,5,"WAIT",&Font16,UNCOLORED);
+                paint.DrawStringAt(5, 5, "WAIT", &Font16, UNCOLORED);
                 epd.SetFrameMemory(paint.GetImage(), 75, 30, paint.GetWidth(), paint.GetHeight());
-            }else{
+            }
+            else
+            {
                 Serial.print("222");
                 paint.SetWidth(50);
                 paint.SetHeight(20);
@@ -249,7 +269,6 @@ void updateDisplay_task(void *pvParameters)
             last_spo2 = eSpO2;
             last_ebpm = Ebpm;
         }
-        
 
         if (bluetooth_connected)
         {
@@ -273,6 +292,7 @@ void updateDisplay_task(void *pvParameters)
         if (abs(eSpO2 - MINIMUM_SPO2) < 0.1)
         {
             paint.DrawStringAt(0, 20, "SpO2: ---", &Font24, COLORED);
+            epd.SetFrameMemory(paint.GetImage(), 0, 50, paint.GetWidth(), paint.GetHeight());
         }
         else
         {
@@ -280,8 +300,22 @@ void updateDisplay_task(void *pvParameters)
             std::string result = tmp.substr(0, tmp.find(".") + 2);
 
             paint.DrawStringAt(2, 20, ("SpO2: " + result + "%").c_str(), &Font24, COLORED);
+            epd.SetFrameMemory(paint.GetImage(), 0, 50, paint.GetWidth(), paint.GetHeight());
+            // low
+            if (eSpO2 < LOW_SPO2)
+            {
+                paint.SetWidth(200);
+                paint.SetHeight(20);
+                paint.Clear(COLORED);
+                paint.DrawStringAt(10, 2, "LOW SP02 WARNING", &Font16, UNCOLORED);
+                epd.SetFrameMemory(paint.GetImage(), 0, 160, paint.GetWidth(), paint.GetHeight());
+            }else{
+                paint.SetWidth(200);
+                paint.SetHeight(20);
+                paint.Clear(UNCOLORED);
+                epd.SetFrameMemory(paint.GetImage(), 0, 160, paint.GetWidth(), paint.GetHeight());
+            }
         }
-        epd.SetFrameMemory(paint.GetImage(), 0, 50, paint.GetWidth(), paint.GetHeight());
 
         paint.SetWidth(200);
         paint.SetHeight(40);
@@ -289,14 +323,42 @@ void updateDisplay_task(void *pvParameters)
         if (abs(eSpO2 - MINIMUM_SPO2) < 0.1)
         {
             paint.DrawStringAt(0, 20, "BPM: ---", &Font24, COLORED);
+            epd.SetFrameMemory(paint.GetImage(), 0, 100, paint.GetWidth(), paint.GetHeight());
         }
         else
         {
             std::string tmp = std::to_string(Ebpm);
             std::string result = tmp.substr(0, tmp.find("."));
             paint.DrawStringAt(2, 20, ("BPM: " + result).c_str(), &Font24, COLORED);
+            epd.SetFrameMemory(paint.GetImage(), 0, 100, paint.GetWidth(), paint.GetHeight());
+            // low
+            if (Ebpm < LOW_BPM)
+            {
+                paint.SetWidth(200);
+                paint.SetHeight(20);
+                paint.Clear(COLORED);
+                paint.DrawStringAt(10, 2, "LOW BPM WARNING", &Font16, UNCOLORED);
+                epd.SetFrameMemory(paint.GetImage(), 0, 140, paint.GetWidth(), paint.GetHeight());
+            }else{
+                paint.SetWidth(200);
+                paint.SetHeight(20);
+                paint.Clear(UNCOLORED);
+                epd.SetFrameMemory(paint.GetImage(), 0, 140, paint.GetWidth(), paint.GetHeight());
+            }
+            if (Ebpm > HIGH_BPM)
+            {
+                paint.SetWidth(200);
+                paint.SetHeight(20);
+                paint.Clear(COLORED);
+                paint.DrawStringAt(10, 2, "HIGH BPM WARNING", &Font16, UNCOLORED);
+                epd.SetFrameMemory(paint.GetImage(), 0, 140, paint.GetWidth(), paint.GetHeight());
+            }else{
+                paint.SetWidth(200);
+                paint.SetHeight(20);
+                paint.Clear(UNCOLORED);
+                epd.SetFrameMemory(paint.GetImage(), 0, 140, paint.GetWidth(), paint.GetHeight());
+            }
         }
-        epd.SetFrameMemory(paint.GetImage(), 0, 100, paint.GetWidth(), paint.GetHeight());
         epd.DisplayFrame();
     }
 }
