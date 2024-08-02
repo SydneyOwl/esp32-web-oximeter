@@ -25,7 +25,7 @@ extern uint32_t ESP_getFlashChipId();
 
 
 extern bool max30102_fail;
-extern bool bluetooth_connected;
+bool bluetooth_connected;
 
 void updateDisplay_task(void *pvParameters);
 
@@ -110,6 +110,19 @@ class MyCallbacks : public BLECharacteristicCallbacks
     }
 };
 
+class MyServerCallbacks : public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+        Serial.print("connected");
+        bluetooth_connected = true;
+    }
+
+    void onDisconnect(BLEServer* pServer) {
+        Serial.print("disconnected");
+        bluetooth_connected = false;
+        abort();
+    }
+};
+
 void setup()
 {
     // 初始化串口
@@ -123,6 +136,15 @@ void setup()
     epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
     epd.DisplayFrame();
     epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
+    epd.DisplayFrame();
+
+
+    paint.SetWidth(200);
+    paint.SetHeight(20);
+    paint.Clear(UNCOLORED);
+    for (int i=0;i<10;i++){
+        epd.SetFrameMemory(paint.GetImage(), 0, 20*i, paint.GetWidth(), paint.GetHeight());
+    }
     epd.DisplayFrame();
 
     // 开启 心率&血压 监测任务
@@ -154,6 +176,7 @@ void setup()
 
     BLEDevice::init("血氧仪");
     BLEServer *pServer = BLEDevice::createServer();
+    pServer->setCallbacks(new MyServerCallbacks());
     BLEService *pService = pServer->createService(SERVICE_UUID);
     BLECharacteristic *pCharacteristic = pService->createCharacteristic(
         CHARACTERISTIC_UUID,
@@ -200,6 +223,22 @@ void updateDisplay_task(void *pvParameters)
             epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
         }
 
+        if (bluetooth_connected)
+        {
+            paint.SetWidth(200);
+            paint.SetHeight(20);
+            paint.Clear(COLORED);
+            paint.DrawStringAt(30, 2, "BLE CONNECTED", &Font16, UNCOLORED);
+            epd.SetFrameMemory(paint.GetImage(), 0, 180, paint.GetWidth(), paint.GetHeight());
+        }
+        else
+        {
+            paint.SetWidth(200);
+            paint.SetHeight(20);
+            paint.Clear(UNCOLORED);
+            epd.SetFrameMemory(paint.GetImage(), 0, 180, paint.GetWidth(), paint.GetHeight());
+        }
+
         paint.SetWidth(200);
         paint.SetHeight(40);
         paint.Clear(UNCOLORED);
@@ -214,7 +253,7 @@ void updateDisplay_task(void *pvParameters)
 
             paint.DrawStringAt(2, 20, ("SpO2: " + result + "%").c_str(), &Font24, COLORED);
         }
-        epd.SetFrameMemory(paint.GetImage(), 0, 30, paint.GetWidth(), paint.GetHeight());
+        epd.SetFrameMemory(paint.GetImage(), 0, 50, paint.GetWidth(), paint.GetHeight());
 
         paint.SetWidth(200);
         paint.SetHeight(40);
@@ -229,7 +268,7 @@ void updateDisplay_task(void *pvParameters)
             std::string result = tmp.substr(0, tmp.find("."));
             paint.DrawStringAt(2, 20, ("BPM: " + result).c_str(), &Font24, COLORED);
         }
-        epd.SetFrameMemory(paint.GetImage(), 0, 80, paint.GetWidth(), paint.GetHeight());
+        epd.SetFrameMemory(paint.GetImage(), 0, 100, paint.GetWidth(), paint.GetHeight());
         epd.DisplayFrame();
     }
 }
