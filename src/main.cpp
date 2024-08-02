@@ -339,20 +339,13 @@ void updateDisplay_task(void *pvParameters)
                 paint.Clear(COLORED);
                 paint.DrawStringAt(10, 2, "LOW BPM WARNING", &Font16, UNCOLORED);
                 epd.SetFrameMemory(paint.GetImage(), 0, 140, paint.GetWidth(), paint.GetHeight());
-            }else{
-                paint.SetWidth(200);
-                paint.SetHeight(20);
-                paint.Clear(UNCOLORED);
-                epd.SetFrameMemory(paint.GetImage(), 0, 140, paint.GetWidth(), paint.GetHeight());
-            }
-            if (Ebpm > HIGH_BPM)
-            {
+            }else if((Ebpm > HIGH_BPM)){
                 paint.SetWidth(200);
                 paint.SetHeight(20);
                 paint.Clear(COLORED);
                 paint.DrawStringAt(10, 2, "HIGH BPM WARNING", &Font16, UNCOLORED);
                 epd.SetFrameMemory(paint.GetImage(), 0, 140, paint.GetWidth(), paint.GetHeight());
-            }else{
+            } else{
                 paint.SetWidth(200);
                 paint.SetHeight(20);
                 paint.Clear(UNCOLORED);
