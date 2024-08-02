@@ -11,27 +11,8 @@
 
 #include <esp_task_wdt.h>
 #include <Wire.h>
-#include "FS.h"
-#include "FFat.h"
-#include "ArduinoJson.h"
-#include <WiFi.h>
-#define FILESYSTEM FFat
-#if FILESYSTEM == FFat
-#include <FFat.h>
-#endif
-#if FILESYSTEM == SPIFFS
-#include <SPIFFS.h>
-#endif
 
 #define I2C_SCL 22
 // #define I2C_SDA 19
 #define I2C_SDA 21
-#define CONFIG_FILE_PATH "/config.json"
-#define DEVICE_NAME "ESP32 血氧仪"
-#define EVENT_NETWORK_OK B1
-extern EventGroupHandle_t Event_Handler;
-extern DynamicJsonDocument config_json;
-
-void loadDefaultConfig();
-uint8_t saveConfigFile();
 #endif
