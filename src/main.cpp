@@ -11,6 +11,9 @@
 #define COLORED 0
 #define UNCOLORED 1
 
+#define STABLE_SP02 0.5
+#define STABLE_BPM 5
+
 #define SERVICE_UUID "cdfa000d-a7b4-4aab-aabe-4e81a362188a"
 #define CHARACTERISTIC_UUID "b7feb784-2f96-4a1e-ad52-f1804c58ad18"
 
@@ -204,6 +207,8 @@ void updateDisplay_task(void *pvParameters)
         epd.DisplayFrame();
         return;
     }
+    double last_spo2 = 0;
+    double last_ebpm = 0;
     while (1)
     {
         delay(500);
@@ -214,6 +219,12 @@ void updateDisplay_task(void *pvParameters)
             paint.Clear(COLORED);
             paint.DrawStringAt(20, 2, "PLACE UR FINGER", &Font16, UNCOLORED);
             epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
+            paint.SetWidth(50);
+            paint.SetHeight(20);
+            paint.Clear(UNCOLORED);
+            epd.SetFrameMemory(paint.GetImage(), 75, 30, paint.GetWidth(), paint.GetHeight());
+            last_ebpm = 0;
+            last_spo2 = 0;
         }
         else
         {
@@ -221,7 +232,24 @@ void updateDisplay_task(void *pvParameters)
             paint.SetHeight(20);
             paint.Clear(UNCOLORED);
             epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
+            if (abs(eSpO2 - MINIMUM_SPO2) > 0.1 && (abs(last_spo2-eSpO2)>STABLE_SP02 || abs(last_ebpm-Ebpm)>STABLE_BPM)){
+                Serial.print("111");
+                paint.SetWidth(50);
+                paint.SetHeight(20);
+                paint.Clear(COLORED);
+                paint.DrawStringAt(5,5,"WAIT",&Font16,UNCOLORED);
+                epd.SetFrameMemory(paint.GetImage(), 75, 30, paint.GetWidth(), paint.GetHeight());
+            }else{
+                Serial.print("222");
+                paint.SetWidth(50);
+                paint.SetHeight(20);
+                paint.Clear(UNCOLORED);
+                epd.SetFrameMemory(paint.GetImage(), 75, 30, paint.GetWidth(), paint.GetHeight());
+            }
+            last_spo2 = eSpO2;
+            last_ebpm = Ebpm;
         }
+        
 
         if (bluetooth_connected)
         {
