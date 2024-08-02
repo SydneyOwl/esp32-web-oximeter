@@ -20,7 +20,6 @@ Epd epd;
 Paint paint(image, 0, 0); // width should be the multiple of 8
 
 
-
 void setup()
 {
     // 初始化串口
@@ -84,15 +83,18 @@ void updateDisplay_task(void *pvParameters)
     while (1)
     {
         delay(500);
-        if (abs(eSpO2 - MINIMUM_SPO2) < 0.1)
-        {
-            paint.DrawStringAt(0, 20, "---", &Font24, COLORED);
+        if (abs(eSpO2 - MINIMUM_SPO2) < 0.1){
+            paint.SetWidth(200);
+            paint.SetHeight(20);
+            paint.Clear(COLORED);
+            paint.DrawStringAt(20, 2, "PLACE UR FINGER", &Font16, UNCOLORED);
+            epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
+        }else{
+            paint.SetWidth(200);
+            paint.SetHeight(20);
+            paint.Clear(UNCOLORED);
+            epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
         }
-        paint.SetWidth(200);
-        paint.SetHeight(20);
-        paint.Clear(COLORED);
-        // paint.DrawStringAt(20, 2, ipaddr.c_str(), &Font16, UNCOLORED);
-        epd.SetFrameMemory(paint.GetImage(), 0, 0, paint.GetWidth(), paint.GetHeight());
 
         paint.SetWidth(200);
         paint.SetHeight(40);
