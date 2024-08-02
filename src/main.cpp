@@ -21,7 +21,11 @@ extern double Ebpm;
 extern float ir_forWeb;
 extern float red_forWeb;
 extern uint32_t ir, red;
+extern uint32_t ESP_getFlashChipId();
+
+
 extern bool max30102_fail;
+extern bool bluetooth_connected;
 
 void updateDisplay_task(void *pvParameters);
 
@@ -68,6 +72,35 @@ class MyCallbacks : public BLECharacteristicCallbacks
                 doc["red_forGraph"] = red_forWeb;
                 doc["ir"] = ir;
                 doc["red"] = red;
+                serializeJson(doc, raw_JSON);
+                pCharacteristic->setValue(raw_JSON);
+                pCharacteristic->indicate();
+                return;
+            }
+            if (order=="getDeviceInfo"){
+                char compilationDate[50];
+                sprintf(compilationDate, "%s %s", __DATE__, __TIME__);
+                doc.clear();
+                doc["millis"] = millis();
+                doc["compilationDate"] = compilationDate;
+
+                doc["chipModel"] = ESP.getChipModel();
+                doc["chipRevision"] = ESP.getChipRevision();
+                doc["cpuFreqMHz"] = ESP.getCpuFreqMHz();
+                doc["chipCores"] = ESP.getChipCores();
+
+                doc["heapSizeKiB"] = ESP.getHeapSize() / 1024;
+                doc["freeHeapKiB"] = ESP.getFreeHeap() / 1024;
+
+                doc["psramSizeKiB"] = ESP.getPsramSize() / 1024;
+                doc["freePsramKiB"] = ESP.getFreePsram() / 1024;
+
+                doc["flashChipId"] = ESP_getFlashChipId();
+                doc["flashSpeedMHz"] = ESP.getFlashChipSpeed() / 1000000;
+                doc["flashSizeMib"] = ESP.getFlashChipSize() / 1024 / 1024;
+
+                doc["sketchMD5"] = ESP.getSketchMD5();
+                doc["sdkVersion"] = ESP.getSdkVersion();
                 serializeJson(doc, raw_JSON);
                 pCharacteristic->setValue(raw_JSON);
                 pCharacteristic->indicate();
