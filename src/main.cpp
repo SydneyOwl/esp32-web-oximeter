@@ -137,17 +137,22 @@ void setup()
 {
     // 初始化串口
     Serial.begin(115200);
+    if (epd.Init(lut_full_update) != 0)
+    {
+        Serial.print("e-Paper init failed");
+        return;
+    }
+    epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
+    epd.DisplayFrame();
+    epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
+    epd.DisplayFrame();
+    SPI.endTransaction();
+    delay(1000);
     if (epd.Init(lut_partial_update) != 0)
     {
         Serial.print("e-Paper init failed");
         return;
     }
-
-    epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
-    epd.DisplayFrame();
-    epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
-    epd.DisplayFrame();
-
     paint.SetWidth(200);
     paint.SetHeight(20);
     paint.Clear(UNCOLORED);
@@ -232,16 +237,11 @@ void updateDisplay_task(void *pvParameters)
             epd.SetFrameMemory(paint.GetImage(), 75, 30, paint.GetWidth(), paint.GetHeight());
             last_ebpm = 0;
             last_spo2 = 0;
-            // clear lowsp2
+            // clear instruction
             paint.SetWidth(200);
             paint.SetHeight(20);
             paint.Clear(UNCOLORED);
-            epd.SetFrameMemory(paint.GetImage(), 0, 160, paint.GetWidth(), paint.GetHeight());
-            //CLEAR LOWHIGHBPM
-            paint.SetWidth(200);
-            paint.SetHeight(20);
-            paint.Clear(UNCOLORED);
-            epd.SetFrameMemory(paint.GetImage(), 0, 140, paint.GetWidth(), paint.GetHeight());
+            epd.SetFrameMemory(paint.GetImage(), 0, 30, paint.GetWidth(), paint.GetHeight());
         }
         else
         {
@@ -255,8 +255,8 @@ void updateDisplay_task(void *pvParameters)
                 paint.SetWidth(50);
                 paint.SetHeight(20);
                 paint.Clear(COLORED);
-                paint.DrawStringAt(5, 5, "WAIT", &Font16, UNCOLORED);
-                epd.SetFrameMemory(paint.GetImage(), 75, 30, paint.GetWidth(), paint.GetHeight());
+                paint.DrawStringAt(5, 2, "WAIT", &Font16, UNCOLORED);
+                epd.SetFrameMemory(paint.GetImage(), 5, 30, paint.GetWidth(), paint.GetHeight());
             }
             else
             {
@@ -264,7 +264,7 @@ void updateDisplay_task(void *pvParameters)
                 paint.SetWidth(50);
                 paint.SetHeight(20);
                 paint.Clear(UNCOLORED);
-                epd.SetFrameMemory(paint.GetImage(), 75, 30, paint.GetWidth(), paint.GetHeight());
+                epd.SetFrameMemory(paint.GetImage(), 5, 30, paint.GetWidth(), paint.GetHeight());
             }
             last_spo2 = eSpO2;
             last_ebpm = Ebpm;
@@ -304,16 +304,18 @@ void updateDisplay_task(void *pvParameters)
             // low
             if (eSpO2 < LOW_SPO2)
             {
-                paint.SetWidth(200);
+                paint.SetWidth(60);
                 paint.SetHeight(20);
                 paint.Clear(COLORED);
-                paint.DrawStringAt(10, 2, "LOW SP02 WARNING", &Font16, UNCOLORED);
-                epd.SetFrameMemory(paint.GetImage(), 0, 160, paint.GetWidth(), paint.GetHeight());
-            }else{
-                paint.SetWidth(200);
+                paint.DrawStringAt(5, 2, "LSP02", &Font16, UNCOLORED);
+                epd.SetFrameMemory(paint.GetImage(), 65, 30, paint.GetWidth(), paint.GetHeight());
+            }
+            else
+            {
+                paint.SetWidth(60);
                 paint.SetHeight(20);
                 paint.Clear(UNCOLORED);
-                epd.SetFrameMemory(paint.GetImage(), 0, 160, paint.GetWidth(), paint.GetHeight());
+                epd.SetFrameMemory(paint.GetImage(), 65, 30, paint.GetWidth(), paint.GetHeight());
             }
         }
 
@@ -331,25 +333,30 @@ void updateDisplay_task(void *pvParameters)
             std::string result = tmp.substr(0, tmp.find("."));
             paint.DrawStringAt(2, 20, ("BPM: " + result).c_str(), &Font24, COLORED);
             epd.SetFrameMemory(paint.GetImage(), 0, 100, paint.GetWidth(), paint.GetHeight());
+            // Ebpm = 10;
             // low
             if (Ebpm < LOW_BPM)
             {
-                paint.SetWidth(200);
+                paint.SetWidth(60);
                 paint.SetHeight(20);
                 paint.Clear(COLORED);
-                paint.DrawStringAt(10, 2, "LOW BPM WARNING", &Font16, UNCOLORED);
-                epd.SetFrameMemory(paint.GetImage(), 0, 140, paint.GetWidth(), paint.GetHeight());
-            }else if((Ebpm > HIGH_BPM)){
-                paint.SetWidth(200);
+                paint.DrawStringAt(5, 2, "L-BPM", &Font16, UNCOLORED);
+                epd.SetFrameMemory(paint.GetImage(), 140, 30, paint.GetWidth(), paint.GetHeight());
+            }
+            else if ((Ebpm > HIGH_BPM))
+            {
+                paint.SetWidth(60);
                 paint.SetHeight(20);
                 paint.Clear(COLORED);
-                paint.DrawStringAt(10, 2, "HIGH BPM WARNING", &Font16, UNCOLORED);
-                epd.SetFrameMemory(paint.GetImage(), 0, 140, paint.GetWidth(), paint.GetHeight());
-            } else{
-                paint.SetWidth(200);
+                paint.DrawStringAt(5, 2, "H-BPM", &Font16, UNCOLORED);
+                epd.SetFrameMemory(paint.GetImage(), 140, 30, paint.GetWidth(), paint.GetHeight());
+            }
+            else
+            {
+                paint.SetWidth(60);
                 paint.SetHeight(20);
                 paint.Clear(UNCOLORED);
-                epd.SetFrameMemory(paint.GetImage(), 0, 140, paint.GetWidth(), paint.GetHeight());
+                epd.SetFrameMemory(paint.GetImage(), 140, 30, paint.GetWidth(), paint.GetHeight());
             }
         }
         epd.DisplayFrame();
