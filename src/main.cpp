@@ -225,7 +225,7 @@ void updateDisplay_task(void *pvParameters)
     double last_ebpm = 0;
     while (1)
     {
-        delay(500);
+        delay(1500);
         if (abs(eSpO2 - MINIMUM_SPO2) < 0.1)
         {
             paint.SetWidth(200);
