@@ -62,7 +62,7 @@ class MyCallbacks : public BLECharacteristicCallbacks
                 doc["msg"] = "Failed to parse your request!";
                 serializeJson(doc, raw_JSON);
                 pCharacteristic->setValue(raw_JSON);
-                pCharacteristic->indicate();
+                pCharacteristic->notify();
                 return;
             }
             // Normal Status
@@ -80,7 +80,7 @@ class MyCallbacks : public BLECharacteristicCallbacks
                 doc["red"] = red;
                 serializeJson(doc, raw_JSON);
                 pCharacteristic->setValue(raw_JSON);
-                pCharacteristic->indicate();
+                pCharacteristic->notify();
                 return;
             }
             if (order == "getDeviceInfo")
@@ -110,7 +110,7 @@ class MyCallbacks : public BLECharacteristicCallbacks
                 doc["sdkVersion"] = ESP.getSdkVersion();
                 serializeJson(doc, raw_JSON);
                 pCharacteristic->setValue(raw_JSON);
-                pCharacteristic->indicate();
+                pCharacteristic->notify();
                 return;
             }
         }
@@ -189,14 +189,16 @@ void setup()
         log_e("Couldn't create UpdateDisplay task\n");
     }
 
-    BLEDevice::init("血氧仪");
+    BLEDevice::init("OWL血氧仪");
     BLEServer *pServer = BLEDevice::createServer();
     pServer->setCallbacks(new MyServerCallbacks());
     BLEService *pService = pServer->createService(SERVICE_UUID);
     BLECharacteristic *pCharacteristic = pService->createCharacteristic(
         CHARACTERISTIC_UUID,
-        BLECharacteristic::PROPERTY_INDICATE |
+        BLECharacteristic::PROPERTY_NOTIFY |
             BLECharacteristic::PROPERTY_WRITE);
+    BLEDescriptor *desc = new BLEDescriptor("00002902-0000-1000-8000-00805F9B34FB");
+    pCharacteristic->addDescriptor(desc);
     pCharacteristic->setCallbacks(new MyCallbacks());
     pService->start();
     BLEAdvertising *pAdvertising = pServer->getAdvertising();
