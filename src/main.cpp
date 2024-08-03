@@ -225,7 +225,24 @@ void updateDisplay_task(void *pvParameters)
     double last_ebpm = 0;
     while (1)
     {
-        delay(1500);
+        delay(500);
+        if (bluetooth_connected)
+        {
+            paint.SetWidth(200);
+            paint.SetHeight(40);
+            paint.Clear(UNCOLORED);
+            paint.DrawStringAt(2, 20, "SpO2: ->BLE", &Font24, COLORED);
+            epd.SetFrameMemory(paint.GetImage(), 0, 50, paint.GetWidth(), paint.GetHeight());
+            paint.Clear(UNCOLORED);
+            paint.DrawStringAt(2, 20, "BPM: ->BLE", &Font24, COLORED);
+            epd.SetFrameMemory(paint.GetImage(), 0, 100, paint.GetWidth(), paint.GetHeight());
+            epd.DisplayFrame();
+            while (1)
+            {
+                delay(100);
+            }
+            
+        }
         if (abs(eSpO2 - MINIMUM_SPO2) < 0.1)
         {
             paint.SetWidth(200);
@@ -272,21 +289,21 @@ void updateDisplay_task(void *pvParameters)
             last_ebpm = Ebpm;
         }
 
-        if (bluetooth_connected)
-        {
-            paint.SetWidth(200);
-            paint.SetHeight(20);
-            paint.Clear(COLORED);
-            paint.DrawStringAt(30, 2, "BLE CONNECTED", &Font16, UNCOLORED);
-            epd.SetFrameMemory(paint.GetImage(), 0, 180, paint.GetWidth(), paint.GetHeight());
-        }
-        else
-        {
-            paint.SetWidth(200);
-            paint.SetHeight(20);
-            paint.Clear(UNCOLORED);
-            epd.SetFrameMemory(paint.GetImage(), 0, 180, paint.GetWidth(), paint.GetHeight());
-        }
+        // if (bluetooth_connected)
+        // {
+        //     paint.SetWidth(200);
+        //     paint.SetHeight(20);
+        //     paint.Clear(COLORED);
+        //     paint.DrawStringAt(30, 2, "BLE CONNECTED", &Font16, UNCOLORED);
+        //     epd.SetFrameMemory(paint.GetImage(), 0, 180, paint.GetWidth(), paint.GetHeight());
+        // }
+        // else
+        // {
+        //     paint.SetWidth(200);
+        //     paint.SetHeight(20);
+        //     paint.Clear(UNCOLORED);
+        //     epd.SetFrameMemory(paint.GetImage(), 0, 180, paint.GetWidth(), paint.GetHeight());
+        // }
 
         paint.SetWidth(200);
         paint.SetHeight(40);
